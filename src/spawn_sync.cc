@@ -852,7 +852,8 @@ int SyncProcessRunner::ParseStdioOption(int child_fd,
 
     return AddStdioPipe(child_fd, readable, writable, buf);
 
-  } else if (js_type->StrictEquals(env()->inherit_string())) {
+  } else if (js_type->StrictEquals(env()->inherit_string()) ||
+             js_type->StrictEquals(env()->fd_string())) {
     int inherit_fd = js_stdio_option->Get(env()->fd_string())->Int32Value();
     return AddStdioInheritFD(child_fd, inherit_fd);
 
