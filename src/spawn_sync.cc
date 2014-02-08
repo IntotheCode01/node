@@ -429,7 +429,7 @@ Environment* SyncProcessRunner::env() const {
 
 
 Local<Object> SyncProcessRunner::Run(Local<Value> options) {
-  HandleScope scope(node_isolate);
+  HandleScope scope(env()->isolate());
 
   assert(lifecycle_ == kUninitialized);
 
@@ -640,7 +640,7 @@ void SyncProcessRunner::SetPipeError(int pipe_error) {
 
 
 Local<Object> SyncProcessRunner::BuildResultObject() {
-  HandleScope scope(node_isolate);
+  HandleScope scope(env()->isolate());
 
   Local<Object> js_result = Object::New();
 
@@ -649,21 +649,21 @@ Local<Object> SyncProcessRunner::BuildResultObject() {
 
   if (exit_status_ >= 0)
     js_result->Set(env()->status_string(),
-        Number::New(node_isolate, static_cast<double>(exit_status_)));
+        Number::New(env()->isolate(), static_cast<double>(exit_status_)));
   else
     // If exit_status_ < 0 the process was never started because of some error.
-    js_result->Set(env()->status_string(), Null(node_isolate));
+    js_result->Set(env()->status_string(), Null(env()->isolate()));
 
   if (term_signal_ > 0)
     js_result->Set(env()->signal_string(),
-        String::NewFromUtf8(node_isolate, signo_string(term_signal_)));
+        String::NewFromUtf8(env()->isolate(), signo_string(term_signal_)));
   else
     js_result->Set(env()->signal_string(), Null());
 
   if (exit_status_ >= 0)
     js_result->Set(env()->output_string(), BuildOutputArray());
   else
-    js_result->Set(env()->output_string(), Null(node_isolate));
+    js_result->Set(env()->output_string(), Null(env()->isolate()));
 
   js_result->Set(env()->pid_string(),
                  Number::New(env()->isolate(), uv_process_.pid));
@@ -676,7 +676,7 @@ Local<Array> SyncProcessRunner::BuildOutputArray() {
   assert(lifecycle_ >= kInitialized);
   assert(stdio_pipes_ != NULL);
 
-  HandleScope scope(node_isolate);
+  HandleScope scope(env()->isolate());
   Local<Array> js_output = Array::New(stdio_count_);
 
   for (uint32_t i = 0; i < stdio_count_; i++) {
@@ -692,7 +692,7 @@ Local<Array> SyncProcessRunner::BuildOutputArray() {
 
 
 int SyncProcessRunner::ParseOptions(Local<Value> js_value) {
-  HandleScope scope(node_isolate);
+  HandleScope scope(env()->isolate());
   int r;
 
   if (!js_value->IsObject())
@@ -789,7 +789,7 @@ int SyncProcessRunner::ParseOptions(Local<Value> js_value) {
 
 
 int SyncProcessRunner::ParseStdioOptions(Local<Value> js_value) {
-  HandleScope scope(node_isolate);
+  HandleScope scope(env()->isolate());
   Local<Array> js_stdio_options;
 
   if (!js_value->IsArray())
