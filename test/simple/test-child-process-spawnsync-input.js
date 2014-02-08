@@ -21,8 +21,58 @@
 
 var common = require('../common');
 var assert = require('assert');
+var os = require('os');
+var util = require('util');
 
 var spawnSync = require('child_process').spawnSync;
+
+function checkRet(ret) {
+  assert.strictEqual(ret.status, 0);
+  assert.strictEqual(ret.error, undefined);
+}
+
+var msgOut = 'this is stdout';
+var msgErr = 'this is stderr';
+
+// this is actually not os.EOL?
+var msgOutBuf = new Buffer(msgOut + '\n');
+var msgErrBuf = new Buffer(msgErr + '\n');
+
+var args = [
+  '-e',
+  util.format('console.log("%s"); console.error("%s");', msgOut, msgErr),
+];
+
+var ret;
+
+
+if (process.argv.indexOf('spawnchild') !== -1) {
+  switch(process.argv[3]) {
+    case '1':
+      ret = spawnSync(process.execPath, args, { stdio: 'inherit' });
+      checkRet(ret);
+      break;
+    case '2':
+      ret = spawnSync(process.execPath, args, {
+        stdio: ['inherit', 'inherit', 'inherit'],
+      });
+      checkRet(ret);
+      break;
+  }
+  process.exit(0);
+  return;
+}
+
+
+function verifyBufOutput(ret) {
+  checkRet(ret);
+  assert.deepEqual(ret.stdout, msgOutBuf);
+  assert.deepEqual(ret.stderr, msgErrBuf);
+}
+
+
+verifyBufOutput(spawnSync(process.execPath, [__filename, 'spawnchild', 1]));
+verifyBufOutput(spawnSync(process.execPath, [__filename, 'spawnchild', 2]));
 
 var options = {
   input: 1234,
@@ -33,29 +83,11 @@ assert.throws(function() {
 }, /TypeError:.*should be Buffer or string not number/);
 
 
-assert.throws(function() {
-  options = {
-    stdio: 'inherit',
-  };
-  spawnSync(process.execPath, ['-v'], options);
-}, /TypeError: Synchronous forks cannot inherit stdio/);
-
-assert.throws(function() {
-  options = {
-    stdio: ['ignore', 'inherit', 'inherit'],
-  };
-  spawnSync(process.execPath, ['-v'], options);
-}, /TypeError: Synchronous forks cannot inherit stdio/); 
-
-function checkRet(ret) {
-  assert.strictEqual(ret.status, 0);
-};
-
 options = {
   input: 'hello world',
 };
 
-var ret = spawnSync('cat', [], options);
+ret = spawnSync('cat', [], options);
 
 checkRet(ret);
 assert.strictEqual(ret.stdout.toString('utf8'), options.input);
@@ -70,3 +102,23 @@ ret = spawnSync('cat', [], options);
 checkRet(ret);
 assert.deepEqual(ret.stdout, options.input);
 assert.deepEqual(ret.stderr, new Buffer(''));
+
+verifyBufOutput(spawnSync(process.execPath, args));
+
+ret = spawnSync(process.execPath, args, { encoding: 'utf8' });
+
+checkRet(ret);
+assert.strictEqual(ret.stdout, msgOut + '\n');
+assert.strictEqual(ret.stderr, msgErr + '\n');
+
+options = {
+  maxBuffer: 1,
+};
+
+ret = spawnSync(process.execPath, args, options);
+
+assert.ok(ret.error, 'maxBuffer should error');
+assert.strictEqual(ret.error.errno, 'ENOBUFS');
+// we can have buffers larger than maxBuffer because underneath we alloc 64k
+// that matches our read sizes
+assert.deepEqual(ret.stdout, msgOutBuf);

@@ -41,6 +41,6 @@ switch(process.argv[2]) {
     console.log(ret);
     var end = Date.now() - start;
     assert(end < SLEEP);
-    assert(ret.status > 128);
+    assert(ret.status > 128 || ret.signal);
     break;
 }

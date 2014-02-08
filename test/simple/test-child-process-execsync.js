@@ -21,6 +21,8 @@
 
 var common = require('../common');
 var assert = require('assert');
+var util = require('util');
+var os = require('os');
 
 var execSync = require('child_process').execSync;
 
@@ -32,12 +34,11 @@ var err;
 var caught = false;
 try
 {
-  var cmd = process.execPath + ' -e "setTimeout(function(){}, ' + SLEEP + ');"';
-  console.log(cmd);
+  var cmd = util.format('%s -e "setTimeout(function(){}, %d);"',
+                        process.execPath, SLEEP);
   var ret = execSync(cmd, {timeout: TIMER});
 } catch (e) {
   caught = true;
-  console.log(e);
   assert.strictEqual(e.errno, 'ETIMEDOUT');
   err = e;
 } finally {
@@ -45,9 +46,24 @@ try
   assert.strictEqual(caught, true, 'execSync should throw');
   var end = Date.now() - start;
   assert(end < SLEEP);
-  assert(err.status > 128);
+  assert(err.status > 128 || err.signal);
 }
 
 assert.throws(function() {
   execSync('iamabadcommand');
 }, /Command failed: iamabadcommand/);
+
+var msg = 'foobar';
+var msgBuf = new Buffer(msg + os.EOL);
+
+cmd = util.format('%s -e "console.log(\'%s\');"', process.execPath, msg);
+
+var ret = execSync(cmd);
+
+assert.strictEqual(ret.length, msgBuf.length);
+assert.deepEqual(ret, msgBuf, 'execSync result buffer should match');
+
+ret = execSync(cmd, { encoding: 'utf8' });
+
+// it's not actually os.EOL on windows?
+assert.strictEqual(ret, msg + '\n', 'execSync encoding result should match');
